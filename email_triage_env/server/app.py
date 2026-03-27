@@ -18,7 +18,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from ..emails import DIFFICULTY_POOLS
@@ -210,6 +210,12 @@ def _safe_email(email: Dict, hide_body: bool) -> Dict:
 # ─────────────────────────────────────────────────────────────────
 # Routes — Core
 # ─────────────────────────────────────────────────────────────────
+
+@app.get("/")
+def root():
+    """Hugging Face Space health-check endpoint."""
+    return RedirectResponse(url="/dashboard")
+
 
 @app.get("/health")
 def health_check():
