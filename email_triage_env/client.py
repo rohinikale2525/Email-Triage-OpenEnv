@@ -82,10 +82,16 @@ class EmailTriageEnv:
     def reset(
         self,
         episode_length: int = 5,
+        difficulty: str = "easy",
+        partial_info: bool = False,
         seed: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Start a new episode."""
-        payload: Dict[str, Any] = {"episode_length": episode_length}
+        payload: Dict[str, Any] = {
+            "episode_length": episode_length,
+            "difficulty": difficulty,
+            "partial_info": partial_info,
+        }
         if seed is not None:
             payload["seed"] = seed
         return self._post("/reset", payload)
@@ -97,6 +103,10 @@ class EmailTriageEnv:
     def list_tools(self) -> List[Dict[str, Any]]:
         """Discover available MCP tools."""
         return self._get("/tools")["tools"]
+
+    def list_tasks(self) -> List[Dict[str, Any]]:
+        """List deterministic benchmark tasks used by the baseline grader."""
+        return self._get("/tasks")["tasks"]
 
     def call_tool(self, tool_name: str, **kwargs) -> Dict[str, Any]:
         """
@@ -111,6 +121,26 @@ class EmailTriageEnv:
             Tool response as a dict.
         """
         return self._post(f"/tools/{tool_name}", kwargs if kwargs else {})
+
+    def step(
+        self,
+        is_spam: bool,
+        category: str,
+        priority: str,
+        department: str,
+        response_template: str,
+    ) -> Dict[str, Any]:
+        """OpenEnv-style step endpoint that wraps one classification action."""
+        return self._post(
+            "/step",
+            {
+                "is_spam": is_spam,
+                "category": category,
+                "priority": priority,
+                "department": department,
+                "response_template": response_template,
+            },
+        )
 
     # ── Convenience wrappers ─────────────────────────────
 

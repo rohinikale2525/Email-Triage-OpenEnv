@@ -37,6 +37,7 @@ Example::
 """
 
 from .client import EmailTriageEnv
+from .openenv_env import DeterministicTaskGrader, EmailTriageOpenEnv
 
-__all__ = ["EmailTriageEnv"]
-__version__ = "1.0.0"
+__all__ = ["EmailTriageEnv", "EmailTriageOpenEnv", "DeterministicTaskGrader"]
+__version__ = "2.0.0"

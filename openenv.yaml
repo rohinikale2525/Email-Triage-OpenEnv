@@ -1,0 +1,133 @@
+name: email-triage-openenv
+version: 2.0.0
+entrypoint: main.py
+framework: fastapi
+tags:
+  - openenv
+  - rl
+  - email-triage
+  - mcp
+summary: MCP-compatible email triage environment with deterministic benchmark tasks.
+description: |
+  Email Triage OpenEnv simulates a real corporate inbox where agents must classify
+  each email across five dimensions: spam, category, priority, department routing,
+  and response template selection. The environment exposes canonical reset/step/state
+  behavior, deterministic grading, and easy/medium/hard tasks.
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  health: /health
+  reset: /reset
+  step: /step
+  state: /state
+
+action_model:
+  type: object
+  required:
+    - is_spam
+    - category
+    - priority
+    - department
+    - response_template
+  properties:
+    is_spam:
+      type: boolean
+    category:
+      type: string
+      enum: [billing, support, sales, hr, general]
+    priority:
+      type: string
+      enum: [urgent, normal, low]
+    department:
+      type: string
+      enum: [finance, customer_support, sales, human_resources, legal, none]
+    response_template:
+      type: string
+      enum:
+        - billing_info
+        - billing_escalation
+        - contract_escalation
+        - password_reset_guide
+        - hr_policy_info
+        - interview_scheduling
+        - enterprise_demo_request
+        - spam_discard
+        - no_reply_needed
+        - automated_no_action
+
+observation_model:
+  type: object
+  required:
+    - id
+    - subject
+    - sender
+    - body
+    - body_hidden
+  properties:
+    id:
+      type: string
+    subject:
+      type: string
+    sender:
+      type: string
+    body:
+      type: string
+    body_hidden:
+      type: boolean
+    difficulty:
+      type: string
+
+reward_model:
+  type: object
+  properties:
+    reward:
+      type: number
+      minimum: 0.0
+      maximum: 1.0
+    done:
+      type: boolean
+    step:
+      type: integer
+    total_reward:
+      type: number
+    field_breakdown:
+      type: object
+
+reward_function:
+  base: weighted-field-accuracy
+  weights:
+    is_spam: 0.30
+    category: 0.20
+    priority: 0.20
+    department: 0.15
+    response_template: 0.15
+  penalties:
+    reveal_body: -0.05
+  bonuses:
+    easy: 0.00
+    medium: 0.10
+    hard: 0.20
+    mixed: 0.05
+
+tasks:
+  - task_id: email_triage_easy_v1
+    difficulty: easy
+    seed: 101
+    episode_length: 5
+    partial_info: false
+  - task_id: email_triage_medium_v1
+    difficulty: medium
+    seed: 202
+    episode_length: 5
+    partial_info: true
+  - task_id: email_triage_hard_v1
+    difficulty: hard
+    seed: 303
+    episode_length: 5
+    partial_info: true
+
+grader:
+  deterministic: true
+  score_range: [0.0, 1.0]
+  aggregation: mean_step_reward

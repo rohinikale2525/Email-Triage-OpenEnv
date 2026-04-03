@@ -55,6 +55,36 @@ DIFFICULTY_BONUS: Dict[str, float] = {
     "mixed":  0.05,
 }
 
+BENCHMARK_TASKS: List[Dict[str, Any]] = [
+  {
+    "task_id": "email_triage_easy_v1",
+    "name": "Easy Email Triage",
+    "difficulty": "easy",
+    "seed": 101,
+    "episode_length": 5,
+    "partial_info": False,
+    "objective": "Accurately triage clear and unambiguous inbox emails.",
+  },
+  {
+    "task_id": "email_triage_medium_v1",
+    "name": "Medium Email Triage",
+    "difficulty": "medium",
+    "seed": 202,
+    "episode_length": 5,
+    "partial_info": True,
+    "objective": "Handle mixed-signal emails while balancing reveal penalties.",
+  },
+  {
+    "task_id": "email_triage_hard_v1",
+    "name": "Hard Email Triage",
+    "difficulty": "hard",
+    "seed": 303,
+    "episode_length": 5,
+    "partial_info": True,
+    "objective": "Detect disguised phishing and route multi-intent emails correctly.",
+  },
+]
+
 # Global leaderboard (in-memory; persists for the server session)
 _leaderboard: List[Dict[str, Any]] = []
 MAX_LEADERBOARD: int = 10
@@ -155,6 +185,43 @@ class ClassifyEmailRequest(BaseModel):
     priority: str
     department: str
     response_template: str
+
+
+class ObservationModel(BaseModel):
+    id: str
+    subject: str
+    sender: str
+    body: str
+    body_hidden: bool = False
+    difficulty: Optional[str] = None
+
+
+class ActionModel(BaseModel):
+    is_spam: bool
+    category: str
+    priority: str
+    department: str
+    response_template: str
+
+
+class RewardModel(BaseModel):
+    reward: float = Field(ge=0.0, le=1.0)
+    done: bool
+    step: int
+    total_reward: float
+    field_breakdown: Dict[str, bool]
+
+
+class StepInfoModel(BaseModel):
+    difficulty: str
+    reveals_used: int
+
+
+class StepResultModel(BaseModel):
+    observation: Optional[ObservationModel] = None
+    reward: RewardModel
+    done: bool
+    info: StepInfoModel
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -259,6 +326,30 @@ def get_state():
     return _episode.to_dict()
 
 
+@app.post("/step", response_model=StepResultModel)
+def step(req: ActionModel):
+    result = tool_classify_email(ClassifyEmailRequest(**req.model_dump()))
+    next_email = result.get("next_email")
+    observation = ObservationModel(**next_email) if next_email else None
+    reward = RewardModel(
+        reward=result["reward"],
+        done=result["done"],
+        step=result["step"],
+        total_reward=result["total_reward"],
+        field_breakdown=result["field_breakdown"],
+    )
+    info = StepInfoModel(
+        difficulty=_episode.difficulty if _episode else "easy",
+        reveals_used=0,
+    )
+    return {
+        "observation": observation,
+        "reward": reward,
+        "done": reward.done,
+        "info": info,
+    }
+
+
 # ─────────────────────────────────────────────────────────────────
 # Routes — MCP Tools
 # ─────────────────────────────────────────────────────────────────
@@ -314,6 +405,15 @@ def list_tools():
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
         ]
+    }
+
+
+@app.get("/tasks")
+def get_tasks():
+    return {
+        "tasks": BENCHMARK_TASKS,
+        "score_range": [0.0, 1.0],
+        "deterministic": True,
     }
 
 

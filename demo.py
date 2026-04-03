@@ -106,9 +106,9 @@ def agent_decide(subject, sender, body):
 
 # ---- Episode runner -------------------------------------------------------
 
-def run_episode(env, difficulty, partial_info, seed, episode_num):
+def run_episode(env, difficulty, partial_info, seed, episode_num, episode_length, step_delay):
     subheader(f"Episode {episode_num} | Difficulty: {difficulty.upper()} | Partial Info: {partial_info}")
-    obs = env.reset(episode_length=5, difficulty=difficulty, partial_info=partial_info, seed=seed)
+    obs = env.reset(episode_length=episode_length, difficulty=difficulty, partial_info=partial_info, seed=seed)
     ep_state = obs.get("state", {})
     print(c(f"  Episode ID : {ep_state.get('episode_id','N/A')}", CYAN))
 
@@ -145,8 +145,8 @@ def run_episode(env, difficulty, partial_info, seed, episode_num):
         decision = agent_decide(subject, sender, body)
         print(c(f"  Decision : {json.dumps(decision)}", WHITE))
 
-        # Wait 3 seconds so you can watch the dashboard update!
-        time.sleep(3.0)
+        # Slow down the demo so the dashboard visibly updates during the run.
+        time.sleep(step_delay)
 
         # Submit
         result = env.classify_email(**decision)
@@ -182,7 +182,7 @@ def run_episode(env, difficulty, partial_info, seed, episode_num):
 
 # ---- Main -----------------------------------------------------------------
 
-def run_demo(base_url, mode, use_partial, seed):
+def run_demo(base_url, mode, use_partial, seed, episode_length, step_delay):
     try:
         from email_triage_env import EmailTriageEnv
     except ImportError:
@@ -233,7 +233,15 @@ def run_demo(base_url, mode, use_partial, seed):
             combos = [(mode, use_partial)]
 
         for difficulty, partial_info in combos:
-            ep_reward, ep_avg = run_episode(env, difficulty, partial_info, seed + ep_num, ep_num)
+            ep_reward, ep_avg = run_episode(
+                env,
+                difficulty,
+                partial_info,
+                seed + ep_num,
+                ep_num,
+                episode_length,
+                step_delay,
+            )
             results.append((difficulty, partial_info, ep_reward, ep_avg))
             ep_num += 1
 
@@ -288,7 +296,16 @@ if __name__ == "__main__":
     parser.add_argument("--mode", default="all", choices=["all", "easy", "medium", "hard", "mixed"])
     parser.add_argument("--partial", action="store_true", help="Enable partial info mode")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--episode-length", type=int, default=8, help="Emails per episode for the demo")
+    parser.add_argument("--delay", type=float, default=5.0, help="Seconds to wait between decisions")
     args = parser.parse_args()
 
     _patch_client()
-    run_demo(base_url=args.url, mode=args.mode, use_partial=args.partial, seed=args.seed)
+    run_demo(
+        base_url=args.url,
+        mode=args.mode,
+        use_partial=args.partial,
+        seed=args.seed,
+        episode_length=args.episode_length,
+        step_delay=args.delay,
+    )
